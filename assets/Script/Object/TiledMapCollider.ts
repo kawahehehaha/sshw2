@@ -1,90 +1,81 @@
 const { ccclass, property } = cc._decorator;
 
 /**
- * TiledMapCollider
- * ─────────────────────────────────────────────────────────────────
- * Attach to the same node as TiledMap.
- * Automatically creates Static RigidBody + BoxCollider for each
- * non-empty tile in the specified layer, then merges horizontal
- * runs into single wide colliders for performance.
- *
- * Setup:
- *   1. Attach to level1 node (same node as TiledMap component)
- *   2. Set layerName to your ground layer name (e.g. "圖塊層 1")
- *   3. Set group to "ground"
+ * TiledMapCollider (Cocos Creator 2.4 compatible)
+ * Attach to level1 node (same as TiledMap component)
  */
 @ccclass
 export default class TiledMapCollider extends cc.Component {
 
-    @property({ tooltip: 'Name of the tile layer to generate colliders from' })
+    @property({ tooltip: 'Tile width in pixels' })
+    tileWidth: number = 16;
+
+    @property({ tooltip: 'Tile height in pixels' })
+    tileHeight: number = 16;
+
+    @property({ tooltip: 'Number of columns in map' })
+    mapCols: number = 100;
+
+    @property({ tooltip: 'Number of rows in map' })
+    mapRows: number = 15;
+
+    @property({ tooltip: 'Name of the tile layer' })
     layerName: string = '圖塊層 1';
 
     onLoad() {
-        const tiledMap = this.getComponent(cc.TiledMap);
-        if (!tiledMap) { cc.error('[TiledMapCollider] No TiledMap found!'); return; }
+        // Enable physics
+        cc.director.getPhysicsManager().enabled = true;
 
-        // Wait one frame for TiledMap to fully load
+        const tiledMap = this.getComponent(cc.TiledMap);
+        if (!tiledMap) { cc.error('[TiledMapCollider] No TiledMap!'); return; }
+
         this.scheduleOnce(() => {
-            this._buildColliders(tiledMap);
-        }, 0);
+            this._build(tiledMap);
+        }, 0.2);
     }
 
-    private _buildColliders(tiledMap: cc.TiledMap) {
+    private _build(tiledMap: cc.TiledMap) {
         const layer = tiledMap.getLayer(this.layerName);
         if (!layer) {
             cc.error(`[TiledMapCollider] Layer "${this.layerName}" not found!`);
             return;
         }
 
-        const mapSize = tiledMap.node.getContentSize();
-        const tileSize = tiledMap.getTileSize();
-        const layerSize = layer.layerSize;
+        const tw = this.tileWidth;
+        const th = this.tileHeight;
+        const cols = this.mapCols;
+        const rows = this.mapRows;
+        const mapW = cols * tw;
+        const mapH = rows * th;
+        const mapOffsetX = -mapW / 2;
+        const mapOffsetY = -mapH / 2;
 
-        const cols = layerSize.width;
-        const rows = layerSize.height;
-        const tw = tileSize.width;
-        const th = tileSize.height;
-
-        // TiledMap in Cocos: origin is bottom-left of the map node
-        // layer.getTileGIDAt uses col (x), row (y) where row 0 = TOP
-        // Cocos world Y: map bottom = node.y - mapSize.height/2
-        //                map top    = node.y + mapSize.height/2
-
-        const mapOffsetX = -mapSize.width / 2;
-        const mapOffsetY = -mapSize.height / 2;
-
-        // Build a boolean grid: solid[row][col]
+        // Build solid grid using getTiledTileAt
         const solid: boolean[][] = [];
         for (let r = 0; r < rows; r++) {
             solid[r] = [];
             for (let c = 0; c < cols; c++) {
-                const gid = layer.getTileGIDAt(cc.v2(c, r));
-                solid[r][c] = gid > 0;
+                const tile = layer.getTiledTileAt(c, r, false);
+                solid[r][c] = (tile !== null && tile !== undefined);
             }
         }
 
-        // Merge horizontal runs per row → one collider per run
+        let colCount = 0;
+
+        // Merge horizontal runs into single colliders
         for (let r = 0; r < rows; r++) {
             let c = 0;
             while (c < cols) {
                 if (!solid[r][c]) { c++; continue; }
 
-                // Find end of this horizontal run
                 let end = c;
                 while (end < cols && solid[r][end]) end++;
 
-                const runWidth = (end - c) * tw;
-                const startCol = c;
-
-                // Position in node-local space
-                // row 0 = top of map; in Cocos Y is up
-                // tile center X = mapOffsetX + (startCol + runLen/2) * tw
-                // tile center Y = mapOffsetY + (rows - r - 1) * th + th/2
-                const localX = mapOffsetX + (startCol + (end - c) / 2) * tw;
+                const runW = (end - c) * tw;
+                const localX = mapOffsetX + (c + (end - c) / 2) * tw;
                 const localY = mapOffsetY + (rows - r - 1) * th + th / 2;
 
-                // Create collider node as child of this node
-                const colNode = new cc.Node('col_' + r + '_' + startCol);
+                const colNode = new cc.Node(`col_${r}_${c}`);
                 this.node.addChild(colNode);
                 colNode.setPosition(localX, localY);
                 colNode.group = 'ground';
@@ -93,13 +84,13 @@ export default class TiledMapCollider extends cc.Component {
                 rb.type = cc.RigidBodyType.Static;
 
                 const box = colNode.addComponent(cc.PhysicsBoxCollider);
-                box.size = cc.size(runWidth, th);
-                box.offset = cc.v2(0, 0);
+                box.size = cc.size(runW, th);
 
+                colCount++;
                 c = end;
             }
         }
 
-        cc.log(`[TiledMapCollider] Built colliders for layer "${this.layerName}"`);
+        cc.log(`[TiledMapCollider] Done: ${colCount} colliders`);
     }
 }
