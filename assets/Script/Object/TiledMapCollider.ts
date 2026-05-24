@@ -1,96 +1,73 @@
 const { ccclass, property } = cc._decorator;
 
-/**
- * TiledMapCollider (Cocos Creator 2.4 compatible)
- * Attach to level1 node (same as TiledMap component)
- */
 @ccclass
 export default class TiledMapCollider extends cc.Component {
 
-    @property({ tooltip: 'Tile width in pixels' })
-    tileWidth: number = 16;
+    @property tileWidth: number = 16;
+    @property tileHeight: number = 16;
+    @property mapCols: number = 100;
+    @property mapRows: number = 15;
 
-    @property({ tooltip: 'Tile height in pixels' })
-    tileHeight: number = 16;
-
-    @property({ tooltip: 'Number of columns in map' })
-    mapCols: number = 100;
-
-    @property({ tooltip: 'Number of rows in map' })
-    mapRows: number = 15;
-
-    @property({ tooltip: 'Name of the tile layer' })
-    layerName: string = '圖塊層 1';
+    @property({ type: cc.TextAsset })
+    tmxText: cc.TextAsset = null;
 
     onLoad() {
-        // Enable physics
         cc.director.getPhysicsManager().enabled = true;
-
-        const tiledMap = this.getComponent(cc.TiledMap);
-        if (!tiledMap) { cc.error('[TiledMapCollider] No TiledMap!'); return; }
-
-        this.scheduleOnce(() => {
-            this._build(tiledMap);
-        }, 0.2);
+        cc.director.getPhysicsManager().debugDrawFlags =
+            cc.PhysicsManager.DrawBits.e_shapeBit;
+        this._build();
     }
 
-    private _build(tiledMap: cc.TiledMap) {
-        const layer = tiledMap.getLayer(this.layerName);
-        if (!layer) {
-            cc.error(`[TiledMapCollider] Layer "${this.layerName}" not found!`);
+    private _build() {
+        if (!this.tmxText) {
+            cc.error('[TiledMapCollider] tmxText not assigned!');
+            this._buildFallback();
             return;
         }
+        const xml = this.tmxText.text;
+        const match = xml.match(/<data[^>]*>([\s\S]*?)<\/data>/);
+        if (!match) { this._buildFallback(); return; }
 
-        const tw = this.tileWidth;
-        const th = this.tileHeight;
-        const cols = this.mapCols;
-        const rows = this.mapRows;
-        const mapW = cols * tw;
-        const mapH = rows * th;
-        const mapOffsetX = -mapW / 2;
-        const mapOffsetY = -mapH / 2;
+        const gids = match[1].trim().split(',').map(s => parseInt(s.trim()) || 0);
+        const tw = this.tileWidth, th = this.tileHeight;
+        const cols = this.mapCols, rows = this.mapRows;
+        const ox = -(cols * tw) / 2;
+        const oy = -(rows * th) / 2;
 
-        // Build solid grid using getTiledTileAt
-        const solid: boolean[][] = [];
-        for (let r = 0; r < rows; r++) {
-            solid[r] = [];
-            for (let c = 0; c < cols; c++) {
-                const tile = layer.getTiledTileAt(c, r, false);
-                solid[r][c] = (tile !== null && tile !== undefined);
-            }
-        }
-
-        let colCount = 0;
-
-        // Merge horizontal runs into single colliders
+        let count = 0;
         for (let r = 0; r < rows; r++) {
             let c = 0;
             while (c < cols) {
-                if (!solid[r][c]) { c++; continue; }
-
-                let end = c;
-                while (end < cols && solid[r][end]) end++;
-
+                if ((gids[r * cols + c] || 0) === 0) { c++; continue; }
+                let end = c + 1;
+                while (end < cols && (gids[r * cols + end] || 0) > 0) end++;
                 const runW = (end - c) * tw;
-                const localX = mapOffsetX + (c + (end - c) / 2) * tw;
-                const localY = mapOffsetY + (rows - r - 1) * th + th / 2;
-
-                const colNode = new cc.Node(`col_${r}_${c}`);
-                this.node.addChild(colNode);
-                colNode.setPosition(localX, localY);
-                colNode.group = 'ground';
-
-                const rb = colNode.addComponent(cc.RigidBody);
-                rb.type = cc.RigidBodyType.Static;
-
-                const box = colNode.addComponent(cc.PhysicsBoxCollider);
+                const n = new cc.Node(`col_${r}_${c}`);
+                this.node.addChild(n);
+                n.setPosition(ox + (c + (end - c) / 2) * tw, oy + (rows - r - 1) * th + th / 2);
+                n.group = 'ground';
+                const rb = n.addComponent(cc.RigidBody);
+                rb.type = cc.RigidBodyType.Static;  // 已經改回 Static，讓剛體固定在原地
+                const box = n.addComponent(cc.PhysicsBoxCollider);
                 box.size = cc.size(runW, th);
-
-                colCount++;
-                c = end;
+                box.apply();
+                count++; c = end;
             }
         }
+        cc.log(`[TiledMapCollider] Created ${count} colliders`);
+    }
 
-        cc.log(`[TiledMapCollider] Done: ${colCount} colliders`);
+    private _buildFallback() {
+        const mapW = this.mapCols * this.tileWidth;
+        const mapH = this.mapRows * this.tileHeight;
+        const n = new cc.Node('ground_fallback');
+        this.node.addChild(n);
+        n.setPosition(0, -mapH / 2 + this.tileHeight);
+        n.group = 'ground';
+        const rb = n.addComponent(cc.RigidBody);
+        rb.type = cc.RigidBodyType.Static;  // 已經改回 Static
+        const box = n.addComponent(cc.PhysicsBoxCollider);
+        box.size = cc.size(mapW, this.tileHeight * 2);
+        box.apply();
     }
 }
