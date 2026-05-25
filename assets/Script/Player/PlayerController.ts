@@ -74,6 +74,8 @@ export default class PlayerController extends cc.Component {
         if (this.leftDown) { vx = -(this.moveSpeed / this.PTM); this.node.scaleX = -1; }
         if (this.rightDown) { vx = (this.moveSpeed / this.PTM); this.node.scaleX = 1; }
         this.rb.linearVelocity = cc.v2(vx, this.rb.linearVelocity.y);
+
+        // 偵測掉出地圖邊界
         if (this.node.y < this.fallDeathY) this.die();
     }
 
@@ -89,7 +91,7 @@ export default class PlayerController extends cc.Component {
             const enemyTop = other.node.y + other.node.height * 0.3;
             if (myBottom >= enemyTop && vy <= 0) {
                 (other.node.getComponent('Enemy') as any)?.stomp();
-                GameManager.inst?.addScore(100);
+                if (GameManager.inst) GameManager.inst.addScore(100);
                 this.rb.linearVelocity = cc.v2(this.rb.linearVelocity.x, 400 / this.PTM);
             } else { this.takeDamage(); }
         }
@@ -113,10 +115,18 @@ export default class PlayerController extends cc.Component {
         this.isDead = true;
         this.rb.linearVelocity = cc.v2(0, 0);
         this.rb.enabled = false;
+
         cc.tween(this.node)
             .to(0.15, { y: this.node.y + 30 })
             .to(0.5, { y: this.node.y - 500, opacity: 0 })
-            .call(() => { GameManager.inst?.loseLife(); })
+            .call(() => {
+                // 改用嚴格判斷，避免靜默失敗卡死遊戲
+                if (GameManager.inst) {
+                    GameManager.inst.loseLife();
+                } else {
+                    cc.error("🚨 找不到 GameManager！請確認它在 MainMenu 場景中是與 Canvas 平行的『最外層根節點』！");
+                }
+            })
             .start();
     }
 
