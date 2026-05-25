@@ -15,11 +15,16 @@ export default class GameUI extends cc.Component {
 
     onLoad() {
         this._timeLeft = this.timeLimit;
-        this.refreshUI();
-        if (GameManager.inst) {
-            GameManager.inst.onLivesChanged = () => this.refreshUI();
-            GameManager.inst.onScoreChanged = () => this.refreshUI();
-        }
+
+        // 延遲一幀執行，確保 GameManager 已經準備好
+        this.scheduleOnce(() => {
+            this.refreshUI();
+            if (GameManager.inst) {
+                // 每次載入時，重新綁定最新的 UI 更新函數
+                GameManager.inst.onLivesChanged = () => this.refreshUI();
+                GameManager.inst.onScoreChanged = () => this.refreshUI();
+            }
+        }, 0);
     }
 
     update(dt: number) {
@@ -28,8 +33,9 @@ export default class GameUI extends cc.Component {
         if (this._timeLeft <= 0) {
             this._timeLeft = 0;
             this._ticking = false;
-            GameManager.inst?.loseLife();
+            if (GameManager.inst) GameManager.inst.loseLife();
         }
+
         if (this.timerLabel) {
             // 只顯示數字，不顯示 TIME
             this.timerLabel.string = Math.ceil(this._timeLeft).toString().padStart(3, '0');
@@ -46,12 +52,9 @@ export default class GameUI extends cc.Component {
         if (this.scoreLabel) this.scoreLabel.string = String(gm.score).padStart(6, '0');
     }
 
-    stopTimer() { this._ticking = false; }
-
-    onDestroy() {
-        if (GameManager.inst) {
-            GameManager.inst.onLivesChanged = null;
-            GameManager.inst.onScoreChanged = null;
-        }
+    stopTimer() {
+        this._ticking = false;
     }
+
+    // 🚨 移除了原本 onDestroy 裡設為 null 的寫法，避免誤殺新場景的綁定
 }
