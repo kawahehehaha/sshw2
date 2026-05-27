@@ -17,11 +17,14 @@ export default class CameraFollow extends cc.Component {
     }
 
     private _targetX(): number {
-        return cc.misc.clampf(
-            this.target.x,  // 已經拿掉負號，改為正向跟隨
-            this.hw - this.mapWidth / 2,
-            this.mapWidth / 2 - this.hw
-        );
+        let worldX = this.target.x;
+        let node: cc.Node = this.target.parent;
+        const root = this.node.parent;
+        while (node && node !== root) {
+            worldX = worldX * node.scaleX + node.x;
+            node = node.parent;
+        }
+        return cc.misc.clampf(worldX, this.hw - this.mapWidth / 2, this.mapWidth / 2 - this.hw);
     }
 
     private _snap() {

@@ -147,9 +147,6 @@
         "__id__": 5
       },
       {
-        "__id__": 15
-      },
-      {
         "__id__": 20
       }
     ],
@@ -232,6 +229,9 @@
       },
       {
         "__id__": 10
+      },
+      {
+        "__id__": 15
       }
     ],
     "_active": true,
@@ -266,8 +266,8 @@
         0,
         0,
         1,
-        1,
-        1,
+        2,
+        2,
         1
       ]
     },
@@ -697,7 +697,7 @@
     "_name": "Player",
     "_objFlags": 0,
     "_parent": {
-      "__id__": 4
+      "__id__": 5
     },
     "_children": [],
     "_active": true,
@@ -822,8 +822,8 @@
       "__id__": 15
     },
     "_enabled": true,
-    "moveSpeed": 1700,
-    "jumpSpeed": 7000,
+    "moveSpeed": 3400,
+    "jumpSpeed": 9800,
     "fallDeathY": -330,
     "invincibleDuration": 2,
     "smallAtlas": {
@@ -1688,7 +1688,7 @@
     "target": {
       "__id__": 15
     },
-    "mapWidth": 1600,
+    "mapWidth": 3200,
     "smoothSpeed": 8,
     "_id": "abqSZ+RdpHwq0IT4IrxnQN"
   },
@@ -1719,11 +1719,11 @@
     "_enabled": true,
     "alignMode": 1,
     "_target": null,
-    "_alignFlags": 45,
-    "_left": 0,
-    "_right": 0,
-    "_top": 0,
-    "_bottom": 0,
+    "_alignFlags": 0,
+    "_left": 480,
+    "_right": 480,
+    "_top": 320,
+    "_bottom": 320,
     "_verticalCenter": 0,
     "_horizontalCenter": 0,
     "_isAbsLeft": true,
