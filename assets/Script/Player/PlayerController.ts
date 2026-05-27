@@ -225,14 +225,28 @@ export default class PlayerController extends cc.Component {
             this._groundCountRaw = this.activeGroundContacts.size;
         }
         if (other.node.group === 'enemy') {
+            const enemy = (other.node.getComponent('Enemy') ||
+                other.node.getComponent('Goomba') ||
+                other.node.getComponent('FlyingGoomba')) as any;
+            // Already stomped this frame by an earlier contact — ignore
+            if (enemy?.isDead) return;
+
             const vy = this.rb.linearVelocity.y;
-            const myBottom = this.node.y - this.node.height * 0.4;
-            const enemyTop = other.node.y + other.node.height * 0.3;
-            if (myBottom >= enemyTop && vy <= 0) {
-                (other.node.getComponent('Enemy') as any)?.stomp();
-                if (GameManager.inst) GameManager.inst.addScore(100);
-                this.rb.linearVelocity = cc.v2(this.rb.linearVelocity.x, 400 / this.PTM);
-            } else { this.takeDamage(); }
+            const selfBox = self as cc.PhysicsBoxCollider;
+            const otherBox = other as cc.PhysicsBoxCollider;
+            const playerBottom = self.node.convertToWorldSpaceAR(
+                cc.v2(0, selfBox.offset.y - selfBox.size.height / 2)).y;
+            const enemyTop = other.node.convertToWorldSpaceAR(
+                cc.v2(0, otherBox.offset.y + otherBox.size.height / 2)).y;
+            if (playerBottom >= enemyTop - 16 && vy <= 0) {
+                other.enabled = false;
+                enemy?.stomp();
+                const pts = enemy?.pointValue ?? 100;
+                if (GameManager.inst) GameManager.inst.addScore(pts);
+                this.doJump();
+            } else {
+                this.takeDamage();
+            }
         }
     }
 

@@ -55,6 +55,7 @@ export default class QuestionBlock extends cc.Component {
 
     private _activate() {
         this.isUsed = true;
+        GameManager.inst?.addScore(100);
 
         cc.tween(this.node)
             .to(0.08, { y: this.originalY + 12 })
@@ -68,7 +69,6 @@ export default class QuestionBlock extends cc.Component {
         if (this.mushroomPrefab) {
             this._spawnMushroom();
         } else if (this.coinPrefab) {
-            GameManager.inst?.addScore(this.coinPoints);
             this._spawnCoin();
         }
     }

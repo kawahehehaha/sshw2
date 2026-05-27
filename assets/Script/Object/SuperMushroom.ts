@@ -1,4 +1,5 @@
 const { ccclass, property } = cc._decorator;
+import GameManager from '../Managers/GameManager';
 
 @ccclass
 export default class SuperMushroom extends cc.Component {
@@ -19,7 +20,6 @@ export default class SuperMushroom extends cc.Component {
         }
     }
 
-    // Called by QuestionBlock right after spawning
     popUp(targetY: number) {
         cc.tween(this.node)
             .to(0.4, { y: targetY }, { easing: 'quadOut' } as any)
@@ -27,11 +27,14 @@ export default class SuperMushroom extends cc.Component {
             .call(() => {
                 this._popping = false;
                 if (this.rb) this.rb.enabled = true;
+                // 必須在 rb 啟用後才 apply，Box2D 才會重算質量
+                const col = this.getComponent(cc.PhysicsBoxCollider);
+                if (col) { col.density = 0.0001; col.apply(); }
             })
             .start();
     }
 
-    update(dt: number) {
+    update(_dt: number) {
         if (this._popping || !this.rb || !this.rb.enabled) return;
         this.rb.linearVelocity = cc.v2(
             this.direction * this.moveSpeed / this.PTM,
@@ -50,6 +53,7 @@ export default class SuperMushroom extends cc.Component {
         if (other.node.group === 'player') {
             const pc = other.node.getComponent('PlayerController') as any;
             if (pc) pc.powerUp();
+            GameManager.inst?.addScore(1000);
             this.collect();
         }
     }
