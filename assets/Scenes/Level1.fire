@@ -826,6 +826,12 @@
     "jumpSpeed": 7000,
     "fallDeathY": -330,
     "invincibleDuration": 2,
+    "smallAtlas": {
+      "__uuid__": "d9cf3b4b-4752-4381-8d23-32858950912c"
+    },
+    "bigAtlas": {
+      "__uuid__": "1d6a7cca-f9d7-4c48-9880-6c2f2939d4bb"
+    },
     "_id": "92Rz+sFdxLSLdBYKwOgBeF"
   },
   {

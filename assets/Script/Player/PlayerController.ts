@@ -9,7 +9,20 @@ export default class PlayerController extends cc.Component {
     @property fallDeathY: number = -400;
     @property invincibleDuration: number = 2.0;
 
+    @property(cc.SpriteAtlas)
+    smallAtlas: cc.SpriteAtlas | null = null;
+
+    @property(cc.SpriteAtlas)
+    bigAtlas: cc.SpriteAtlas | null = null;
+
+    // ── 動畫 frame 名稱，如果播錯了直接在這裡改 ──
+    private readonly ANIM_IDLE  = 'mario_small_0';
+    private readonly ANIM_WALK  = ['mario_small_1', 'mario_small_2', 'mario_small_3'];
+    private readonly ANIM_JUMP  = 'mario_small_4';
+    private readonly WALK_FPS   = 8;
+
     private rb: cc.RigidBody = null;
+    private sprite: cc.Sprite | null = null;
     private isDead: boolean = false;
     private isInvincible: boolean = false;
     private isBig: boolean = false;
@@ -21,6 +34,9 @@ export default class PlayerController extends cc.Component {
     private _groundCountRaw: number = 0;
     private _coyoteTimer: number = 0;
     private readonly COYOTE: number = 0.1;
+
+    private _walkTimer: number = 0;
+    private _walkIdx: number = 0;
 
     private get isOnGround(): boolean {
         return this._groundCountRaw > 0 || this._coyoteTimer > 0;
@@ -36,6 +52,9 @@ export default class PlayerController extends cc.Component {
         this.rb.enabledContactListener = true;
         const col = this.getComponent(cc.PhysicsBoxCollider);
         if (col) { col.friction = 0; col.apply(); }
+
+        this.sprite = this.getComponent(cc.Sprite);
+
         cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
         cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
     }
@@ -67,16 +86,49 @@ export default class PlayerController extends cc.Component {
 
     update(dt: number) {
         if (this.isDead || !this.rb) return;
+
         if (this._groundCountRaw === 0 && this._coyoteTimer > 0) {
             this._coyoteTimer = Math.max(0, this._coyoteTimer - dt);
         }
+
         let vx = 0;
-        if (this.leftDown) { vx = -(this.moveSpeed / this.PTM); this.node.scaleX = -1; }
-        if (this.rightDown) { vx = (this.moveSpeed / this.PTM); this.node.scaleX = 1; }
+        if (this.leftDown)  { vx = -(this.moveSpeed / this.PTM); this.node.scaleX = -1; }
+        if (this.rightDown) { vx =  (this.moveSpeed / this.PTM); this.node.scaleX =  1; }
         this.rb.linearVelocity = cc.v2(vx, this.rb.linearVelocity.y);
 
-        // 偵測掉出地圖邊界
+        this._updateAnim(dt);
+
         if (this.node.y < this.fallDeathY) this.die();
+    }
+
+    private _updateAnim(dt: number) {
+        const atlas = this.isBig ? this.bigAtlas : this.smallAtlas;
+        if (!atlas || !this.sprite) return;
+
+        if (!this.isOnGround) {
+            // 空中：顯示跳躍 frame
+            this._setFrame(atlas, this.ANIM_JUMP);
+            this._walkTimer = 0;
+            this._walkIdx = 0;
+        } else if (this.leftDown || this.rightDown) {
+            // 走路：循環 3 幀
+            this._walkTimer += dt;
+            if (this._walkTimer >= 1 / this.WALK_FPS) {
+                this._walkTimer = 0;
+                this._walkIdx = (this._walkIdx + 1) % this.ANIM_WALK.length;
+            }
+            this._setFrame(atlas, this.ANIM_WALK[this._walkIdx]);
+        } else {
+            // 靜止
+            this._setFrame(atlas, this.ANIM_IDLE);
+            this._walkTimer = 0;
+            this._walkIdx = 0;
+        }
+    }
+
+    private _setFrame(atlas: cc.SpriteAtlas, name: string) {
+        const frame = atlas.getSpriteFrame(name);
+        if (frame && this.sprite) this.sprite.spriteFrame = frame;
     }
 
     onBeginContact(contact: cc.PhysicsContact, self: cc.PhysicsCollider, other: cc.PhysicsCollider) {
@@ -120,11 +172,10 @@ export default class PlayerController extends cc.Component {
             .to(0.15, { y: this.node.y + 30 })
             .to(0.5, { y: this.node.y - 500, opacity: 0 })
             .call(() => {
-                // 改用嚴格判斷，避免靜默失敗卡死遊戲
                 if (GameManager.inst) {
                     GameManager.inst.loseLife();
                 } else {
-                    cc.error("🚨 找不到 GameManager！請確認它在 MainMenu 場景中是與 Canvas 平行的『最外層根節點』！");
+                    cc.error('找不到 GameManager！');
                 }
             })
             .start();
