@@ -2,20 +2,30 @@
   "group-list": [
     "ground",
     "player",
-    "enemy"
+    "enemy",
+    "item"
   ],
   "collision-matrix": [
     [
       false,
       true,
+      true,
       true
     ],
     [
       true,
       true,
+      true,
       true
     ],
     [
+      true,
+      true,
+      true,
+      true
+    ],
+    [
+      true,
       true,
       true,
       true

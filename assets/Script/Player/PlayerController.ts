@@ -1,6 +1,8 @@
 const { ccclass, property } = cc._decorator;
 import GameManager from '../Managers/GameManager';
 
+const GROW_SEQ = [false, true, false, true, false, true, false, true, true];
+
 @ccclass
 export default class PlayerController extends cc.Component {
 
@@ -24,10 +26,19 @@ export default class PlayerController extends cc.Component {
     @property(cc.SpriteFrame)
     deathFrame: cc.SpriteFrame | null = null;
 
+    @property(cc.SpriteFrame)
+    bigDeathFrame: cc.SpriteFrame | null = null;
+
+    @property(cc.AudioClip)
+    powerUpSfx: cc.AudioClip | null = null;
+
     // ── 動畫 frame 名稱，如果播錯了直接在這裡改 ──
-    private readonly ANIM_IDLE = 'mario_small_0';
-    private readonly ANIM_WALK = ['mario_small_1', 'mario_small_2', 'mario_small_3'];
+    private readonly ANIM_IDLE = 'mario_small_17';
+    private readonly ANIM_WALK = ['mario_small_6', 'mario_small_7', 'mario_small_8'];
     private readonly ANIM_JUMP = 'mario_small_4';
+    private readonly BIG_ANIM_IDLE = 'mario_big_26';
+    private readonly BIG_ANIM_WALK = ['mario_big_20', 'mario_big_21', 'mario_big_22'];
+    private readonly BIG_ANIM_JUMP = 'mario_big_18';
     private readonly WALK_FPS = 8;
 
     private rb: cc.RigidBody = null;
@@ -35,6 +46,13 @@ export default class PlayerController extends cc.Component {
     private isDead: boolean = false;
     private isInvincible: boolean = false;
     private isBig: boolean = false;
+
+    private _origColH: number = 0;
+
+    // growth animation state (-1 = not growing)
+    private _growIdx: number = -1;
+    private _growTimer: number = 0;
+
 
     private leftDown: boolean = false;
     private rightDown: boolean = false;
@@ -57,10 +75,14 @@ export default class PlayerController extends cc.Component {
         cc.director.getPhysicsManager().enabled = true;
         this.rb = this.getComponent(cc.RigidBody);
         if (!this.rb) { cc.error('PlayerController: no RigidBody!'); return; }
-        this.rb.fixedAngle = true;
+        (this.rb as any).fixedAngle = true;
         this.rb.enabledContactListener = true;
         const col = this.getComponent(cc.PhysicsBoxCollider);
-        if (col) { col.friction = 0; col.apply(); }
+        if (col) {
+            col.friction = 0;
+            this._origColH = col.size.height;
+            col.apply();
+        }
 
         this.sprite = this.getComponent(cc.Sprite);
 
@@ -101,6 +123,25 @@ export default class PlayerController extends cc.Component {
             this._coyoteTimer = Math.max(0, this._coyoteTimer - dt);
         }
 
+        // ── 成長動畫（在 update 裡計時，不依賴 scheduleOnce）──
+        if (this._growIdx >= 0) {
+            this._growTimer += dt;
+            if (this._growTimer >= 0.08) {
+                this._growTimer = 0;
+                const useBig = GROW_SEQ[this._growIdx];
+                const atlas = useBig ? this.bigAtlas : this.smallAtlas;
+                const name  = useBig ? this.BIG_ANIM_IDLE : this.ANIM_IDLE;
+                if (atlas && this.sprite) this._setFrame(atlas, name);
+                this._growIdx++;
+                if (this._growIdx >= GROW_SEQ.length) {
+                    this._growIdx = -1;
+                    this.isBig = true;
+                    this._applyBigCollider();
+                }
+            }
+            return; // 成長中不處理移動與一般動畫
+        }
+
         let vx = 0;
         if (this.leftDown) { vx = -(this.moveSpeed / this.PTM); this.node.scaleX = -1; }
         if (this.rightDown) { vx = (this.moveSpeed / this.PTM); this.node.scaleX = 1; }
@@ -111,26 +152,34 @@ export default class PlayerController extends cc.Component {
         if (this.node.y < this.fallDeathY) this.die();
     }
 
+    powerUp() {
+        if (this.isBig || this.isDead || this._growIdx >= 0) return;
+        if (this.powerUpSfx) cc.audioEngine.playEffect(this.powerUpSfx, false);
+        this._growIdx = 0;
+        this._growTimer = 0;
+    }
+
     private _updateAnim(dt: number) {
-        const atlas = this.isBig ? this.bigAtlas : this.smallAtlas;
+        const atlas = (this.isBig && this.bigAtlas) ? this.bigAtlas : this.smallAtlas;
         if (!atlas || !this.sprite) return;
 
+        const idle = this.isBig ? this.BIG_ANIM_IDLE : this.ANIM_IDLE;
+        const walk = this.isBig ? this.BIG_ANIM_WALK : this.ANIM_WALK;
+        const jump = this.isBig ? this.BIG_ANIM_JUMP : this.ANIM_JUMP;
+
         if (!this.isOnGround) {
-            // 空中：顯示跳躍 frame
-            this._setFrame(atlas, this.ANIM_JUMP);
+            this._setFrame(atlas, jump);
             this._walkTimer = 0;
             this._walkIdx = 0;
         } else if (this.leftDown || this.rightDown) {
-            // 走路：循環 3 幀
             this._walkTimer += dt;
             if (this._walkTimer >= 1 / this.WALK_FPS) {
                 this._walkTimer = 0;
-                this._walkIdx = (this._walkIdx + 1) % this.ANIM_WALK.length;
+                this._walkIdx = (this._walkIdx + 1) % walk.length;
             }
-            this._setFrame(atlas, this.ANIM_WALK[this._walkIdx]);
+            this._setFrame(atlas, walk[this._walkIdx]);
         } else {
-            // 靜止
-            this._setFrame(atlas, this.ANIM_IDLE);
+            this._setFrame(atlas, idle);
             this._walkTimer = 0;
             this._walkIdx = 0;
         }
@@ -166,9 +215,29 @@ export default class PlayerController extends cc.Component {
         if (prev > 0 && this._groundCountRaw === 0) this._coyoteTimer = this.COYOTE;
     }
 
+    private _applyBigCollider() {
+        const col = this.getComponent(cc.PhysicsBoxCollider);
+        if (!col) return;
+        col.size = cc.size(col.size.width, this._origColH * 2);
+        col.offset = cc.v2(0, 0);
+        col.apply();
+    }
+
+    private _applySmallCollider() {
+        const col = this.getComponent(cc.PhysicsBoxCollider);
+        if (!col) return;
+        col.size = cc.size(col.size.width, this._origColH);
+        col.offset = cc.v2(0, 0);
+        col.apply();
+    }
+
     takeDamage() {
         if (this.isInvincible || this.isDead) return;
-        if (this.isBig) { this.isBig = false; this.node.setScale(1, 1); this._startInvincible(); }
+        if (this.isBig) {
+            this.isBig = false;
+            this._applySmallCollider();
+            this._startInvincible();
+        }
         else { this.die(); }
     }
 
@@ -182,7 +251,8 @@ export default class PlayerController extends cc.Component {
         if (this.dieSfx) cc.audioEngine.playEffect(this.dieSfx, false);
 
         this.scheduleOnce(() => {
-            if (this.deathFrame && this.sprite) this.sprite.spriteFrame = this.deathFrame;
+            const frame = (this.isBig && this.bigDeathFrame) ? this.bigDeathFrame : this.deathFrame;
+            if (frame && this.sprite) this.sprite.spriteFrame = frame;
             this.scheduleOnce(() => {
                 if (GameManager.inst) {
                     GameManager.inst.loseLife();
