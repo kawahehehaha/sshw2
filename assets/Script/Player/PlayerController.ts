@@ -2,6 +2,7 @@ const { ccclass, property } = cc._decorator;
 import GameManager from '../Managers/GameManager';
 
 const GROW_SEQ = [false, true, false, true, false, true, false, true, true];
+const SHRINK_SEQ = [true, false, true, false, true, false, true, false, false];
 
 @ccclass
 export default class PlayerController extends cc.Component {
@@ -32,6 +33,9 @@ export default class PlayerController extends cc.Component {
     @property(cc.AudioClip)
     powerUpSfx: cc.AudioClip | null = null;
 
+    @property(cc.AudioClip)
+    damageSfx: cc.AudioClip | null = null;
+
     // ── 動畫 frame 名稱，如果播錯了直接在這裡改 ──
     private readonly ANIM_IDLE = 'mario_small_17';
     private readonly ANIM_WALK = ['mario_small_6', 'mario_small_7', 'mario_small_8'];
@@ -52,6 +56,10 @@ export default class PlayerController extends cc.Component {
     // growth animation state (-1 = not growing)
     private _growIdx: number = -1;
     private _growTimer: number = 0;
+
+    // shrink animation state (-1 = not shrinking)
+    private _shrinkIdx: number = -1;
+    private _shrinkTimer: number = 0;
 
 
     private leftDown: boolean = false;
@@ -123,14 +131,14 @@ export default class PlayerController extends cc.Component {
             this._coyoteTimer = Math.max(0, this._coyoteTimer - dt);
         }
 
-        // ── 成長動畫（在 update 裡計時，不依賴 scheduleOnce）──
+        // ── 成長動畫 ──
         if (this._growIdx >= 0) {
             this._growTimer += dt;
             if (this._growTimer >= 0.08) {
                 this._growTimer = 0;
                 const useBig = GROW_SEQ[this._growIdx];
                 const atlas = useBig ? this.bigAtlas : this.smallAtlas;
-                const name  = useBig ? this.BIG_ANIM_IDLE : this.ANIM_IDLE;
+                const name = useBig ? this.BIG_ANIM_IDLE : this.ANIM_IDLE;
                 if (atlas && this.sprite) this._setFrame(atlas, name);
                 this._growIdx++;
                 if (this._growIdx >= GROW_SEQ.length) {
@@ -139,7 +147,27 @@ export default class PlayerController extends cc.Component {
                     this._applyBigCollider();
                 }
             }
-            return; // 成長中不處理移動與一般動畫
+            return;
+        }
+
+        // ── 縮小動畫（受傷大→小）──
+        if (this._shrinkIdx >= 0) {
+            this.rb.linearVelocity = cc.v2(0, this.rb.linearVelocity.y);
+            this._shrinkTimer += dt;
+            if (this._shrinkTimer >= 0.08) {
+                this._shrinkTimer = 0;
+                const useBig = SHRINK_SEQ[this._shrinkIdx];
+                const atlas = useBig ? this.bigAtlas : this.smallAtlas;
+                const name = useBig ? this.BIG_ANIM_IDLE : this.ANIM_IDLE;
+                if (atlas && this.sprite) this._setFrame(atlas, name);
+                this._shrinkIdx++;
+                if (this._shrinkIdx >= SHRINK_SEQ.length) {
+                    this._shrinkIdx = -1;
+                    this._applySmallCollider();
+                    this._startInvincible();
+                }
+            }
+            return;
         }
 
         let vx = 0;
@@ -232,11 +260,12 @@ export default class PlayerController extends cc.Component {
     }
 
     takeDamage() {
-        if (this.isInvincible || this.isDead) return;
+        if (this.isInvincible || this.isDead || this._shrinkIdx >= 0) return;
         if (this.isBig) {
             this.isBig = false;
-            this._applySmallCollider();
-            this._startInvincible();
+            if (this.damageSfx) cc.audioEngine.playEffect(this.damageSfx, false);
+            this._shrinkIdx = 0;
+            this._shrinkTimer = 0;
         }
         else { this.die(); }
     }
