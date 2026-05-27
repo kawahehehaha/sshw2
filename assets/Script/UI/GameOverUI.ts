@@ -5,6 +5,9 @@ import GameManager from '../Managers/GameManager';
 export default class GameOverUI extends cc.Component {
 
     @property(cc.Label)
+    titleLabel: cc.Label = null;
+
+    @property(cc.Label)
     finalScoreLabel: cc.Label = null;
 
     @property(cc.Node)
@@ -14,12 +17,19 @@ export default class GameOverUI extends cc.Component {
     menuButton: cc.Node = null;
 
     start() {
+        const isWin = GameManager.inst?.isWin ?? false;
+
+        if (this.titleLabel) {
+            this.titleLabel.string = isWin ? 'GAME WIN!' : 'GAME OVER';
+        }
+
         if (this.finalScoreLabel && GameManager.inst) {
             this.finalScoreLabel.string = 'SCORE: ' + String(GameManager.inst.score).padStart(6, '0');
         }
 
         this.retryButton?.on(cc.Node.EventType.TOUCH_END, () => {
             if (GameManager.inst) {
+                GameManager.inst.isWin = false;
                 GameManager.inst.lives = 3;
                 GameManager.inst.score = 0;
             }
@@ -28,6 +38,7 @@ export default class GameOverUI extends cc.Component {
 
         this.menuButton?.on(cc.Node.EventType.TOUCH_END, () => {
             if (GameManager.inst) {
+                GameManager.inst.isWin = false;
                 GameManager.inst.lives = 3;
                 GameManager.inst.score = 0;
             }

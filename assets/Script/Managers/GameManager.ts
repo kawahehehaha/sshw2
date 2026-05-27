@@ -9,6 +9,7 @@ export default class GameManager extends cc.Component {
     public score: number = 0;
     public currentLevel: number = 1;
     public totalLevels: number = 3;
+    public isWin: boolean = false;
 
     public onScoreChanged: (() => void) | null = null;
     public onLivesChanged: (() => void) | null = null;
@@ -28,6 +29,7 @@ export default class GameManager extends cc.Component {
         this.onLivesChanged?.();
         if (this.lives <= 0) {
             this.lives = 0;
+            this.isWin = false;
             cc.director.loadScene('GameOver');
         } else {
             cc.director.loadScene(cc.director.getScene().name);
@@ -35,7 +37,8 @@ export default class GameManager extends cc.Component {
     }
 
     winLevel() {
-        cc.director.loadScene('GameWin');
+        this.isWin = true;
+        cc.director.loadScene('GameOver');
     }
 
     addScore(pts: number) {

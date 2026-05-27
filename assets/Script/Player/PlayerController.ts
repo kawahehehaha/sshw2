@@ -31,6 +31,9 @@ export default class PlayerController extends cc.Component {
     bigDeathFrame: cc.SpriteFrame | null = null;
 
     @property(cc.AudioClip)
+    stompSfx: cc.AudioClip | null = null;
+
+    @property(cc.AudioClip)
     powerUpSfx: cc.AudioClip | null = null;
 
     @property(cc.AudioClip)
@@ -243,6 +246,7 @@ export default class PlayerController extends cc.Component {
                 enemy?.stomp();
                 const pts = enemy?.pointValue ?? 100;
                 if (GameManager.inst) GameManager.inst.addScore(pts);
+                if (this.stompSfx) cc.audioEngine.playEffect(this.stompSfx, false);
                 this.doJump();
             } else {
                 this.takeDamage();
