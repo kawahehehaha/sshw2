@@ -824,13 +824,22 @@
     "_enabled": true,
     "moveSpeed": 3400,
     "jumpSpeed": 9800,
-    "fallDeathY": -330,
+    "fallDeathY": -150,
     "invincibleDuration": 2,
     "smallAtlas": {
       "__uuid__": "d9cf3b4b-4752-4381-8d23-32858950912c"
     },
     "bigAtlas": {
       "__uuid__": "1d6a7cca-f9d7-4c48-9880-6c2f2939d4bb"
+    },
+    "jumpSfx": {
+      "__uuid__": "4a20707e-6219-41f3-9323-607071f496ea"
+    },
+    "dieSfx": {
+      "__uuid__": "97cafaec-0340-49c3-96fc-662e72bd939e"
+    },
+    "deathFrame": {
+      "__uuid__": "d8dff37f-ab8f-489b-9b5b-0dda5d5f9906"
     },
     "_id": "92Rz+sFdxLSLdBYKwOgBeF"
   },
@@ -1637,6 +1646,9 @@
     },
     "timerLabel": {
       "__id__": 33
+    },
+    "bgm": {
+      "__uuid__": "9476d85a-6d66-43cd-935d-ef55c8d16930"
     },
     "timeLimit": 180,
     "_id": "a898227XlPGaKyrH/NPBr3"

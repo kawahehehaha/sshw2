@@ -15,11 +15,20 @@ export default class PlayerController extends cc.Component {
     @property(cc.SpriteAtlas)
     bigAtlas: cc.SpriteAtlas | null = null;
 
+    @property(cc.AudioClip)
+    jumpSfx: cc.AudioClip | null = null;
+
+    @property(cc.AudioClip)
+    dieSfx: cc.AudioClip | null = null;
+
+    @property(cc.SpriteFrame)
+    deathFrame: cc.SpriteFrame | null = null;
+
     // ── 動畫 frame 名稱，如果播錯了直接在這裡改 ──
-    private readonly ANIM_IDLE  = 'mario_small_0';
-    private readonly ANIM_WALK  = ['mario_small_1', 'mario_small_2', 'mario_small_3'];
-    private readonly ANIM_JUMP  = 'mario_small_4';
-    private readonly WALK_FPS   = 8;
+    private readonly ANIM_IDLE = 'mario_small_0';
+    private readonly ANIM_WALK = ['mario_small_1', 'mario_small_2', 'mario_small_3'];
+    private readonly ANIM_JUMP = 'mario_small_4';
+    private readonly WALK_FPS = 8;
 
     private rb: cc.RigidBody = null;
     private sprite: cc.Sprite | null = null;
@@ -82,6 +91,7 @@ export default class PlayerController extends cc.Component {
     doJump() {
         this._coyoteTimer = 0;
         this.rb.linearVelocity = cc.v2(this.rb.linearVelocity.x, this.jumpSpeed / this.PTM);
+        if (this.jumpSfx) cc.audioEngine.playEffect(this.jumpSfx, false);
     }
 
     update(dt: number) {
@@ -92,8 +102,8 @@ export default class PlayerController extends cc.Component {
         }
 
         let vx = 0;
-        if (this.leftDown)  { vx = -(this.moveSpeed / this.PTM); this.node.scaleX = -1; }
-        if (this.rightDown) { vx =  (this.moveSpeed / this.PTM); this.node.scaleX =  1; }
+        if (this.leftDown) { vx = -(this.moveSpeed / this.PTM); this.node.scaleX = -1; }
+        if (this.rightDown) { vx = (this.moveSpeed / this.PTM); this.node.scaleX = 1; }
         this.rb.linearVelocity = cc.v2(vx, this.rb.linearVelocity.y);
 
         this._updateAnim(dt);
@@ -166,19 +176,21 @@ export default class PlayerController extends cc.Component {
         if (this.isDead) return;
         this.isDead = true;
         this.rb.linearVelocity = cc.v2(0, 0);
+        this.rb.gravityScale = 0;
         this.rb.enabled = false;
+        cc.audioEngine.stopMusic();
+        if (this.dieSfx) cc.audioEngine.playEffect(this.dieSfx, false);
 
-        cc.tween(this.node)
-            .to(0.15, { y: this.node.y + 30 })
-            .to(0.5, { y: this.node.y - 500, opacity: 0 })
-            .call(() => {
+        this.scheduleOnce(() => {
+            if (this.deathFrame && this.sprite) this.sprite.spriteFrame = this.deathFrame;
+            this.scheduleOnce(() => {
                 if (GameManager.inst) {
                     GameManager.inst.loseLife();
                 } else {
                     cc.error('找不到 GameManager！');
                 }
-            })
-            .start();
+            }, 1);
+        }, 1);
     }
 
     private _startInvincible() {

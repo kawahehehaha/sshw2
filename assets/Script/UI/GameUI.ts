@@ -8,6 +8,9 @@ export default class GameUI extends cc.Component {
     @property(cc.Label) scoreLabel: cc.Label = null;
     @property(cc.Label) timerLabel: cc.Label = null;
 
+    @property(cc.AudioClip)
+    bgm: cc.AudioClip | null = null;
+
     @property timeLimit: number = 180;
 
     private _timeLeft: number = 0;
@@ -15,6 +18,7 @@ export default class GameUI extends cc.Component {
 
     onLoad() {
         this._timeLeft = this.timeLimit;
+        if (this.bgm) { const clip = this.bgm; this.scheduleOnce(() => cc.audioEngine.playMusic(clip, true), 1.25); }
 
         // 延遲一幀執行，確保 GameManager 已經準備好
         this.scheduleOnce(() => {
