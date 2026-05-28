@@ -78,6 +78,11 @@ BGM: bgm_1 / bgm_2 / bgm_3 (level background music), Game Over.mp3 (death music)
 | Enemy stomp | Squish scale tween then destroy |
 | Main menu title | Sine bob loop (cc.tween) |
 
+## Bonus Features
+
+- **Firebase Login** — sign up and sign in with email/password, or continue as guest
+- **Online Leaderboard** — top 10 scores stored in Firestore; only updates if the new score is higher
+
 ## Build & Deploy
 
 1. Open project in **Cocos Creator 2.4.8**
