@@ -1,5 +1,6 @@
 const { ccclass, property } = cc._decorator;
 import GameManager from '../Managers/GameManager';
+import FirebaseManager from '../Managers/FirebaseManager';
 
 @ccclass
 export default class GameOverUI extends cc.Component {
@@ -18,14 +19,17 @@ export default class GameOverUI extends cc.Component {
 
     start() {
         const isWin = GameManager.inst?.isWin ?? false;
+        const score = GameManager.inst?.score ?? 0;
 
         if (this.titleLabel) {
             this.titleLabel.string = isWin ? 'GAME WIN!' : 'GAME OVER';
         }
 
-        if (this.finalScoreLabel && GameManager.inst) {
-            this.finalScoreLabel.string = 'SCORE: ' + String(GameManager.inst.score).padStart(6, '0');
+        if (this.finalScoreLabel) {
+            this.finalScoreLabel.string = 'SCORE: ' + String(score).padStart(6, '0');
         }
+
+        FirebaseManager.inst?.submitScore(score);
 
         this.retryButton?.on(cc.Node.EventType.TOUCH_END, () => {
             if (GameManager.inst) {

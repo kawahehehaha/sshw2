@@ -13,8 +13,6 @@ export default class TiledMapCollider extends cc.Component {
 
     onLoad() {
         cc.director.getPhysicsManager().enabled = true;
-        cc.director.getPhysicsManager().debugDrawFlags =
-            cc.PhysicsManager.DrawBits.e_shapeBit;
         this._build();
     }
 
